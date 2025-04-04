@@ -1,0 +1,211 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+:root {
+  font-family: 'Inter', 'Roboto', 'Helvetica', 'Arial', sans-serif;
+  line-height: 1.5;
+  font-weight: 400;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  min-height: 100vh;
+  background-color: #f8fafc;
+  color: #1e293b;
+}
+
+.barcode-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+  gap: 24px;
+  margin-top: 24px;
+}
+
+.barcode-item {
+  background: white;
+  border-radius: 12px;
+  padding: 20px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  transition: transform 0.2s ease, box-shadow 0.2s ease, opacity 0.2s ease, border 0.2s ease;
+}
+
+.barcode-item:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
+}
+
+.barcode-item.deselected {
+  opacity: 0.6;
+  border: 1px dashed #ccc;
+  background-color: #f9f9f9;
+}
+
+.barcode-item.deselected:hover {
+  opacity: 0.8;
+}
+
+.print-page {
+  width: 210mm;
+  min-height: 297mm;
+  padding: 10mm;
+  background: white;
+}
+
+.hide-on-print {
+  display: flex;
+}
+
+/* Table styling */
+.barcode-table {
+  border-collapse: separate;
+  border-spacing: 0;
+  width: 100%;
+}
+
+.barcode-table td {
+  padding: 12px 16px;
+  vertical-align: middle;
+}
+
+.barcode-table th {
+  padding: 12px 16px;
+  font-weight: 600;
+  color: #64748b;
+  text-transform: uppercase;
+  font-size: 0.75rem;
+  letter-spacing: 0.5px;
+}
+
+.barcode-table tbody tr {
+  transition: background-color 0.2s, opacity 0.2s;
+}
+
+.barcode-table tbody tr:hover {
+  background-color: rgba(37, 99, 235, 0.04);
+}
+
+.barcode-table tbody tr.deselected {
+  opacity: 0.6;
+  background-color: #f8f8f8;
+}
+
+.barcode-table tbody tr.deselected:hover {
+  opacity: 0.8;
+  background-color: rgba(37, 99, 235, 0.02);
+}
+
+.barcode-table .barcode-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+/* Form field styles */
+.form-field-tooltip {
+  display: flex;
+  align-items: center;
+  margin-top: 4px;
+}
+
+.form-field-label {
+  display: flex;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.form-field-label .info-icon {
+  margin-left: 6px;
+  opacity: 0.7;
+}
+
+/* Tooltip enhancements */
+.tooltip {
+  max-width: 300px;
+  font-size: 0.875rem;
+  line-height: 1.5;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #f1f5f9;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+/* SVG barcode rendering */
+.barcode-svg {
+  max-width: 100%;
+  height: auto;
+}
+
+/* Table barcode cell */
+.barcode-cell {
+  min-width: 200px;
+  max-width: 300px;
+}
+
+/* Print styles */
+@media print {
+  body {
+    background: white;
+  }
+  
+  .hide-on-print {
+    display: none !important;
+  }
+  
+  .print-page {
+    padding: 0;
+    width: 100%;
+  }
+
+  .barcode-item {
+    box-shadow: none;
+    page-break-inside: avoid;
+  }
+  
+  /* Only print selected items */
+  .barcode-item.deselected,
+  .barcode-table tbody tr.deselected {
+    display: none !important;
+  }
+  
+  /* Table print styles */
+  .barcode-table th {
+    color: #000;
+    border-bottom: 1px solid #ddd;
+  }
+  
+  .barcode-table td {
+    border-bottom: 1px solid #eee;
+  }
+  
+  /* Ensure barcode visibility */
+  .barcode-svg {
+    max-width: 90%;
+    height: auto;
+  }
+}
