@@ -78,11 +78,11 @@ const BarcodeGenerator = () => {
                 JsBarcode(element, data.value, {
                   format: "CODE128",
                   displayValue: true,
-                  fontSize: 18,
-                  margin: 15,
-                  width: 2,
-                  height: 50,
-                  textMargin: 10,
+                  fontSize: 24,
+                  margin: 10,
+                  width: 1.5,
+                  height: 40,
+                  textMargin: 8,
                 });
               });
             }
@@ -91,7 +91,7 @@ const BarcodeGenerator = () => {
           }
         });
       }
-    }, 100); // Small delay to ensure DOM is ready
+    }, 100);
   }, [barcodeData, displayMode]);
 
   const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -265,12 +265,12 @@ const BarcodeGenerator = () => {
                 JsBarcode("#print-barcode-${barcode.id}", "${barcode.value}", {
                   format: "CODE128",
                   displayValue: true,
-                  fontSize: 14,
-                  margin: 6,
+                  fontSize: 20,
+                  margin: 5,
                   background: '#fff',
-                  width: 2,
-                  height: 20,
-                  textMargin: 3
+                  width: 1.5,
+                  height: 30,
+                  textMargin: 5
                 });
               `).join('')}
               setTimeout(function() { window.print(); window.close(); }, 500);
@@ -403,11 +403,11 @@ const BarcodeGenerator = () => {
           JsBarcode(dialogBarcodeSelector, currentPrintBarcode.value, {
             format: "CODE128",
             displayValue: true,
-            fontSize: 18,
-            margin: 15,
-            width: 2,
-            height: 30,
-            textMargin: 10,
+            fontSize: 24,
+            margin: 10,
+            width: 1.5,
+            height: 40,
+            textMargin: 8,
           });
         }
       }, 100);
