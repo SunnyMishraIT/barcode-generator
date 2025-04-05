@@ -235,7 +235,7 @@ const BarcodeGenerator = () => {
                 page-break-inside: avoid;
               }
               .barcode-label {
-                margin-bottom: 10px;
+                margin-bottom: 3px;
                 font-size: 14px;
                 text-align: center;
                 font-weight: 500;
@@ -265,11 +265,12 @@ const BarcodeGenerator = () => {
                 JsBarcode("#print-barcode-${barcode.id}", "${barcode.value}", {
                   format: "CODE128",
                   displayValue: true,
-                  fontSize: 18,
-                  margin: 15,
+                  fontSize: 14,
+                  margin: 6,
+                  background: '#fff',
                   width: 2,
-                  height: 50,
-                  textMargin: 10
+                  height: 20,
+                  textMargin: 3
                 });
               `).join('')}
               setTimeout(function() { window.print(); window.close(); }, 500);
@@ -405,7 +406,7 @@ const BarcodeGenerator = () => {
             fontSize: 18,
             margin: 15,
             width: 2,
-            height: 50,
+            height: 30,
             textMargin: 10,
           });
         }
