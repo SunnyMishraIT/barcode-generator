@@ -80,7 +80,7 @@ const BarcodeGenerator = () => {
                   displayValue: true,
                   fontSize: 24,
                   margin: 10,
-                  width: 1.5,
+                  width: 0.8,
                   height: 40,
                   textMargin: 8,
                 });
@@ -236,7 +236,7 @@ const BarcodeGenerator = () => {
               }
               .barcode-label {
                 margin-bottom: 3px;
-                font-size: 14px;
+                font-size: 12px;
                 text-align: center;
                 font-weight: 500;
               }
@@ -268,7 +268,7 @@ const BarcodeGenerator = () => {
                   fontSize: 20,
                   margin: 5,
                   background: '#fff',
-                  width: 1.5,
+                  width: 0.8,
                   height: 30,
                   textMargin: 5
                 });
@@ -405,7 +405,7 @@ const BarcodeGenerator = () => {
             displayValue: true,
             fontSize: 24,
             margin: 10,
-            width: 1.5,
+            width: 0.8,
             height: 40,
             textMargin: 8,
           });
