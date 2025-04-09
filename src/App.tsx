@@ -8,7 +8,7 @@ import Header from './components/Header';
 import Footer from './components/Footer';
 import Home from './pages/Home';
 import BarcodeGenerator from './pages/BarcodeGenerator';
-
+import BarcodeGeneratorv2 from './pages/BarcodeGeneratorv2';
 // Create a theme instance
 const theme = createTheme({
   palette: {
@@ -103,6 +103,7 @@ function App() {
           <Routes>
             <Route path="/" element={<Home />} />
             <Route path="/generator" element={<BarcodeGenerator />} />
+            <Route path="/small-barcode" element={<BarcodeGeneratorv2 />} />
           </Routes>
         </Container>
         <Footer />
