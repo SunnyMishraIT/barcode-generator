@@ -10,6 +10,7 @@ import Home from './pages/Home';
 import BarcodeGenerator from './pages/BarcodeGenerator';
 import BarcodeGeneratorv2 from './pages/BarcodeGeneratorv2';
 import BarcodeGeneratorv3 from './pages/BarcodeGeneratorv3';
+import BarcodeUniqueGenerator from './pages/BarcodeUniqueGenerator';
 // Create a theme instance
 const theme = createTheme({
   palette: {
@@ -106,6 +107,7 @@ function App() {
             <Route path="/generator" element={<BarcodeGenerator />} />
             <Route path="/small-barcode" element={<BarcodeGeneratorv2 />} />
             <Route path="/small-barcode-v2" element={<BarcodeGeneratorv3 />} />
+            <Route path="/barcode-unique-generator" element={<BarcodeUniqueGenerator />} />
           </Routes>
         </Container>
         <Footer />

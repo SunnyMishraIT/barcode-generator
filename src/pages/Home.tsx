@@ -84,6 +84,26 @@ const Home = () => {
         >
           Start Generating Barcodes
         </Button>
+        <Button
+          variant="contained"
+          size="large"
+          component={RouterLink}
+          to="/barcode-unique-generator"
+          startIcon={<QrCodeIcon />}
+          sx={{ 
+            py: 1.5, 
+            px: 4, 
+            marginTop: 2,
+            fontSize: '1.1rem',
+            borderRadius: 3,
+            boxShadow: '0 4px 14px rgba(37, 99, 235, 0.25)',
+            '&:hover': {
+              boxShadow: '0 6px 20px rgba(37, 99, 235, 0.35)',
+            },
+          }}
+        >
+          Start Generating Unique Barcodes
+        </Button>
       </Box>
 
       {/* Features Section */}
