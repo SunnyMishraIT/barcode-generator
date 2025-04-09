@@ -49,6 +49,7 @@ interface BarcodeData {
   value: string; // This will be the FNS
   identifier: string; // This will be the unique numeric identifier
   selected: boolean;
+  label?: string;
 }
 
 const BarcodeUniqueGenerator = () => {
@@ -99,17 +100,20 @@ const BarcodeUniqueGenerator = () => {
             const elements = document.querySelectorAll(selector);
             if (elements && elements.length > 0) {
               elements.forEach(element => {
-                JsBarcode(element, data.identifier, {
-                  format: "CODE128",
-                  displayValue: false,
-                  fontSize: 10,
-                  margin: 5,
-                  width: 1,
-                  height: 40,
-                  textMargin: 0,
-                  textPosition: "bottom",
-                  lineColor: "#000",
-                });
+                // If there's a label, use it for the barcode, otherwise use the identifier
+                if (data.label) {
+                  JsBarcode(element, data.identifier, {
+                    format: "CODE128",
+                    displayValue: false,
+                    fontSize: 10,
+                    margin: 5,
+                    width: 1,
+                    height: 40,
+                    textMargin: 0,
+                    textPosition: "bottom",
+                    lineColor: "#000",
+                  });
+                }
               });
             }
           } catch (error) {
@@ -254,6 +258,14 @@ const BarcodeUniqueGenerator = () => {
   };
 
   const createPrintContent = (barcodesToPrint: BarcodeData[]) => {
+    // Filter barcodes to only include those with labels
+    const printableBarcodes = barcodesToPrint.filter(barcode => barcode.label);
+    
+    if (printableBarcodes.length === 0) {
+      setError('No barcodes with labels found for printing');
+      return '';
+    }
+    
     // Create a new document with just the barcodes to print
     let printContent = `
       <html>
@@ -286,17 +298,23 @@ const BarcodeUniqueGenerator = () => {
                 margin-bottom: 20px;
                 page-break-inside: avoid;
               }
-              .barcode-identifier {
+              .barcode-label {
                 margin-bottom: 3px;
                 font-size: 12px;
                 text-align: center;
                 font-weight: 600;
               }
-              .barcode-fns {
+              .barcode-identifier {
                 margin-top: 3px;
                 font-size: 10px;
                 text-align: center;
                 font-weight: 500;
+              }
+              .barcode-fns {
+                margin-top: 2px;
+                font-size: 8px;
+                text-align: center;
+                color: #666;
               }
             }
           </style>
@@ -305,11 +323,12 @@ const BarcodeUniqueGenerator = () => {
           <div class="barcode-container">
     `;
 
-    barcodesToPrint.forEach(barcode => {
+    printableBarcodes.forEach(barcode => {
       printContent += `
         <div class="barcode-item">
-          <div class="barcode-identifier">${barcode.identifier}</div>
+          <div class="barcode-label">${barcode.label}</div>
           <svg id="print-barcode-${barcode.id}" class="barcode-svg"></svg>
+          <div class="barcode-identifier">${barcode.identifier}</div>
           <div class="barcode-fns">${barcode.value}</div>
         </div>
       `;
@@ -320,7 +339,7 @@ const BarcodeUniqueGenerator = () => {
           <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"></script>
           <script>
             document.addEventListener('DOMContentLoaded', function() {
-              ${barcodesToPrint.map(barcode => `
+              ${printableBarcodes.map(barcode => `
                 JsBarcode("#print-barcode-${barcode.id}", "${barcode.identifier}", {
                   format: "CODE128",
                   displayValue: false,
@@ -352,8 +371,18 @@ const BarcodeUniqueGenerator = () => {
       return;
     }
     
+    // Filter for barcodes with labels
+    const printableBarcodes = selectedBarcodes.filter(barcode => barcode.label);
+    
+    if (printableBarcodes.length === 0) {
+      setError('None of the selected barcodes have labels for printing');
+      return;
+    }
+    
     // Create a new window with just the barcodes to print
     const printContent = createPrintContent(selectedBarcodes);
+    if (!printContent) return; // If empty, createPrintContent already set an error
+    
     const printWindow = window.open('', '_blank');
     if (printWindow) {
       printWindow.document.open();
@@ -365,6 +394,12 @@ const BarcodeUniqueGenerator = () => {
   };
 
   const handlePrintSingle = (barcode: BarcodeData) => {
+    // Only allow printing if the barcode has a label
+    if (!barcode.label) {
+      setError('This item has no label to print as a barcode');
+      return;
+    }
+    
     setCurrentPrintBarcode(barcode);
     setPrintDialogOpen(true);
   };
@@ -487,7 +522,7 @@ const BarcodeUniqueGenerator = () => {
   // Fix the barcode rendering in the dialog
   useEffect(() => {
     // Special handling for dialog barcode
-    if (printDialogOpen && currentPrintBarcode) {
+    if (printDialogOpen && currentPrintBarcode && currentPrintBarcode.label) {
       setTimeout(() => {
         const dialogBarcodeSelector = `#dialog-barcode-${currentPrintBarcode.id}`;
         const dialogBarcodeElement = document.querySelector(dialogBarcodeSelector);
@@ -713,7 +748,7 @@ const BarcodeUniqueGenerator = () => {
             
             <Divider sx={{ mb: 4 }} />
             
-            <Box className="print-page" ref={barcodeContainerRef} sx={{ 
+            <Box className="" ref={barcodeContainerRef} sx={{ 
               '.barcode-svg': { 
                 display: 'block', 
                 width: '100%',
@@ -730,11 +765,19 @@ const BarcodeUniqueGenerator = () => {
                       className={`barcode-item ${!barcode.selected ? 'deselected' : ''}`}
                       sx={{ padding: 2 }}
                     >
-                      <Typography variant="body2" sx={{ mb: 1.5, fontWeight: 600, textAlign: 'center', fontSize: '0.75rem' }}>
+                      {/* Display label above barcode if present */}
+                      {barcode.label && (
+                        <Typography variant="body2" sx={{ mb: 1.5, fontWeight: 600, textAlign: 'center', fontSize: '0.75rem' }}>
+                          {barcode.label}
+                        </Typography>
+                      )}
+                      <svg id={`barcode-${barcode.id}`} className="barcode-svg"></svg>
+                      {/* Display identifier below barcode */}
+                      <Typography variant="body2" sx={{ mt: 1.5, fontWeight: 500, textAlign: 'center', fontSize: '0.65rem' }}>
                         {barcode.identifier}
                       </Typography>
-                      <svg id={`barcode-${barcode.id}`} className="barcode-svg"></svg>
-                      <Typography variant="body2" sx={{ mt: 1.5, fontWeight: 500, textAlign: 'center', fontSize: '0.65rem' }}>
+                      {/* Display FNS value below identifier */}
+                      <Typography variant="body2" sx={{ mt: 0.5, color: 'text.secondary', textAlign: 'center', fontSize: '0.6rem' }}>
                         {barcode.value}
                       </Typography>
                       <CardActions className="hide-on-print">
@@ -748,6 +791,7 @@ const BarcodeUniqueGenerator = () => {
                             size="small" 
                             onClick={() => handlePrintSingle(barcode)}
                             color="primary"
+                            disabled={!barcode.label}
                           >
                             <PrintIcon fontSize="small" />
                           </IconButton>
@@ -757,8 +801,8 @@ const BarcodeUniqueGenerator = () => {
                   ))}
                 </div>
               ) : (
-                <TableContainer>
-                  <Table className="barcode-table">
+                <TableContainer sx={{ width: '100%' }}>
+                  <Table className="barcode-table" sx={{ width: '100%' }}>
                     <TableHead>
                       <TableRow>
                         <TableCell padding="checkbox">
@@ -770,6 +814,7 @@ const BarcodeUniqueGenerator = () => {
                         <TableCell>Identifier</TableCell>
                         <TableCell>Barcode</TableCell>
                         <TableCell>FNS</TableCell>
+                        {labelColumn && <TableCell>Label</TableCell>}
                         <TableCell align="right" className="hide-on-print">Actions</TableCell>
                       </TableRow>
                     </TableHead>
@@ -791,12 +836,14 @@ const BarcodeUniqueGenerator = () => {
                             <svg id={`barcode-${barcode.id}`} className="barcode-svg"></svg>
                           </TableCell>
                           <TableCell>{barcode.value}</TableCell>
+                          {labelColumn && <TableCell>{barcode.label}</TableCell>}
                           <TableCell align="right" className="hide-on-print">
                             <Tooltip title="Print this barcode">
                               <IconButton 
                                 onClick={() => handlePrintSingle(barcode)} 
                                 color="primary"
                                 size="medium"
+                                disabled={!barcode.label}
                               >
                                 <PrintIcon />
                               </IconButton>
@@ -834,11 +881,16 @@ const BarcodeUniqueGenerator = () => {
             
             {currentPrintBarcode && (
               <Box sx={{ my: 3, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                <Typography variant="body2" sx={{ mb: 1.5, fontWeight: 600, fontSize: '0.75rem' }}>
-                  {currentPrintBarcode.identifier}
-                </Typography>
+                {currentPrintBarcode.label && (
+                  <Typography variant="body2" sx={{ mb: 1.5, fontWeight: 600, fontSize: '0.75rem' }}>
+                    {currentPrintBarcode.label}
+                  </Typography>
+                )}
                 <svg id={`dialog-barcode-${currentPrintBarcode.id}`} className="barcode-svg"></svg>
                 <Typography variant="body2" sx={{ mt: 1.5, fontWeight: 500, fontSize: '0.65rem' }}>
+                  {currentPrintBarcode.identifier}
+                </Typography>
+                <Typography variant="body2" sx={{ mt: 0.5, color: 'text.secondary', fontSize: '0.6rem' }}>
                   {currentPrintBarcode.value}
                 </Typography>
               </Box>
