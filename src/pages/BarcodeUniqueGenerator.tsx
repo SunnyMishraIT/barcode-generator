@@ -43,6 +43,7 @@ import DownloadIcon from '@mui/icons-material/GetApp';
 import * as XLSX from 'xlsx';
 import JsBarcode from 'jsbarcode';
 import html2canvas from 'html2canvas';
+import axios from 'axios';
 
 interface BarcodeData {
   id: string;
@@ -66,29 +67,54 @@ const BarcodeUniqueGenerator = () => {
   const [currentPrintBarcode, setCurrentPrintBarcode] = useState<BarcodeData | null>(null);
   const barcodeContainerRef = useRef<HTMLDivElement>(null);
   const printFrameRef = useRef<HTMLIFrameElement>(null);
+  const [counterValue, setCounterValue] = useState<number>(0);
 
   // Function to generate unique numeric identifier
-  const generateUniqueIdentifier = (index: number, fnsValue: string): string => {
-    // Create a unique identifier using both index and a hash of the FNS value
-    // This ensures uniqueness even if the file is uploaded multiple times
+  // const generateUniqueIdentifier = (index: number, fnsValue: string): string => {
+  //   // Create a unique identifier using both index and a hash of the FNS value
+  //   // This ensures uniqueness even if the file is uploaded multiple times
     
-    // Use last 4 characters of FNS (or pad if shorter)
-    const fnsEnd = fnsValue.length > 4 ? fnsValue.slice(-4) : fnsValue.padStart(4, '0');
+  //   // Use last 4 characters of FNS (or pad if shorter)
+  //   const fnsEnd = fnsValue.length > 4 ? fnsValue.slice(-4) : fnsValue.padStart(4, '0');
     
-    // Create a simple hash from the FNS value (get numeric values only)
-    const numericHash = fnsEnd.replace(/[^0-9]/g, '');
+  //   // Create a simple hash from the FNS value (get numeric values only)
+  //   const numericHash = fnsEnd.replace(/[^0-9]/g, '');
     
-    // If we have numeric values, use them, otherwise use index-based unique ID
-    if (numericHash.length > 0) {
-      // Take last digit for uniqueness
-      const uniqueDigit = numericHash.slice(-1);
-      // Combine with index to ensure uniqueness
-      return `${String(index + 1).padStart(4, '0')}${uniqueDigit}`;
-    } else {
-      // If no numeric values in FNS, use the index as the main identifier but ensure 5 digits
-      return String(index + 1).padStart(5, '0');
+  //   // If we have numeric values, use them, otherwise use index-based unique ID
+  //   if (numericHash.length > 0) {
+  //     // Take last digit for uniqueness
+  //     const uniqueDigit = numericHash.slice(-1);
+  //     // Combine with index to ensure uniqueness
+  //     return `${String(index + 1).padStart(4, '0')}${uniqueDigit}`;
+  //   } else {
+  //     // If no numeric values in FNS, use the index as the main identifier but ensure 5 digits
+  //     return String(index + 1).padStart(5, '0');
+  //   }
+  // };
+
+  const generateUniqueIdentifier = () => {
+    const startingCounter = counterValue;
+    const counter = startingCounter + 1;
+    setCounterValue(counter);
+    return String(counter).padStart(6, '0');
+  };
+
+  const fetchLastCounter = async () => {
+    try {
+      const response = await axios.get('http://10.0.1.12:6060/api/flipkart/custom/wid/get-sequence');
+      console.log('Response:', response.data); 
+      if(response.data.success){
+        console.log('Setting counter value:', response.data.data);
+        setCounterValue(response.data.data);
+      }
+    } catch (error) {
+      console.error('Error fetching counter:', error);  
     }
   };
+
+  useEffect(() => {
+    fetchLastCounter();
+  }, []);
 
   // Apply barcodes whenever barcode data changes
   useEffect(() => {
@@ -206,7 +232,7 @@ const BarcodeUniqueGenerator = () => {
           const label = labelColumn ? row[labelColumn]?.toString() || '' : '';
           
           // Generate base identifier
-          let identifier = generateUniqueIdentifier(index, value);
+          let identifier = generateUniqueIdentifier();
           
           // Ensure identifier is unique by adding a suffix if needed
           let suffix = 0;
@@ -381,6 +407,7 @@ const BarcodeUniqueGenerator = () => {
     
     // Create a new window with just the barcodes to print
     const printContent = createPrintContent(selectedBarcodes);
+    // sendDataToApi();
     if (!printContent) return; // If empty, createPrintContent already set an error
     
     const printWindow = window.open('', '_blank');
@@ -393,7 +420,30 @@ const BarcodeUniqueGenerator = () => {
     }
   };
 
+  const sendDataToApi = async () => {
+    const payload = {
+      "data": barcodeData.map(item => ({
+        "fsn": item.value,
+        "uid": Number(item.identifier),
+        "cid": item.label
+      }))
+    }
+    try {
+      const response = await axios.post('http://10.0.1.12:6060/api/flipkart/custom/wid/create', payload);
+      console.log('Response:', response);
+      if(response.data.success){
+        fetchLastCounter();
+        setError(null);
+      }
+      return response;
+    } catch (error) {
+      console.error('Error sending data to API:', error);
+      setError('Failed to send data to API');
+    }
+  };
+
   const handlePrintSingle = (barcode: BarcodeData) => {
+    
     // Only allow printing if the barcode has a label
     if (!barcode.label) {
       setError('This item has no label to print as a barcode');
@@ -411,6 +461,7 @@ const BarcodeUniqueGenerator = () => {
 
   const handlePrintSingleConfirm = () => {
     if (currentPrintBarcode) {
+      // sendDataToApi();
       const printContent = createPrintContent([currentPrintBarcode]);
       const printWindow = window.open('', '_blank');
       if (printWindow) {
@@ -735,12 +786,21 @@ const BarcodeUniqueGenerator = () => {
                     </Button>
                   </Tooltip>
                   
-                  <Button
+                  {/* <Button
                     variant="outlined"
                     onClick={handleDownloadAllAsPDF}
                     className="hide-on-print"
                   >
                     Download as Image
+                  </Button> */}
+
+                  <Button
+                    variant="contained"
+                    color="secondary"
+                    onClick={sendDataToApi}
+                    className="hide-on-print"
+                  >
+                    Save to Server
                   </Button>
                 </Stack>
               </Box>
