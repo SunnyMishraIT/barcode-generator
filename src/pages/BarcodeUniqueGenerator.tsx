@@ -350,7 +350,7 @@ const BarcodeUniqueGenerator = () => {
                 margin-top: 2px;
                 font-size: 8px;
                 text-align: center;
-                color: #666;
+                font-weight: 600;
               }
             }
           </style>
@@ -928,7 +928,7 @@ const BarcodeUniqueGenerator = () => {
                 <Typography variant="body2" sx={{ mt: 1.5, fontWeight: 500, fontSize: '0.65rem' }}>
                   {currentPrintBarcode.identifier}
                 </Typography>
-                <Typography variant="body2" sx={{ mt: 0.5, color: 'text.secondary', fontSize: '0.6rem' }}>
+                <Typography variant="body2" sx={{ mt: 0.5, fontWeight: 600, fontSize: '0.6rem' }}>
                   {currentPrintBarcode.value}
                 </Typography>
               </Box>
