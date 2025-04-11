@@ -54,6 +54,7 @@ interface BarcodeData {
 }
 
 const BarcodeUniqueGenerator = () => {
+  const baseUrl = 'https://fkprodapi.viralfission.com/';
   const [file, setFile] = useState<File | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
@@ -101,14 +102,17 @@ const BarcodeUniqueGenerator = () => {
 
   const fetchLastCounter = async () => {
     try {
-      const response = await axios.get('http://10.0.1.12:6060/api/flipkart/custom/wid/get-sequence');
+      const response = await axios.get(`${baseUrl}api/flipkart/custom/wid/get-sequence`);
       console.log('Response:', response.data); 
       if(response.data.success){
         console.log('Setting counter value:', response.data.data);
         setCounterValue(response.data.data);
+        return response.data.data;
       }
+      return counterValue; // Return current value if API doesn't return success
     } catch (error) {
-      console.error('Error fetching counter:', error);  
+      console.error('Error fetching counter:', error);
+      return counterValue; // Return current value in case of error
     }
   };
 
@@ -150,7 +154,7 @@ const BarcodeUniqueGenerator = () => {
     }, 100);
   }, [barcodeData, displayMode]);
 
-  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = event.target.files;
     if (!files || files.length === 0) return;
 
@@ -158,6 +162,9 @@ const BarcodeUniqueGenerator = () => {
     setFile(uploadedFile);
     setError(null);
     setIsLoading(true);
+    
+    // Fetch the latest counter value when a new file is uploaded
+    await fetchLastCounter();
     
     const reader = new FileReader();
     reader.onload = (e) => {
@@ -200,7 +207,7 @@ const BarcodeUniqueGenerator = () => {
     reader.readAsBinaryString(uploadedFile);
   };
 
-  const handleGenerateBarcodes = () => {
+  const handleGenerateBarcodes = async () => {
     if (!file || !selectedColumn) {
       setError('Please select a file and a column for barcode values');
       return;
@@ -208,6 +215,9 @@ const BarcodeUniqueGenerator = () => {
 
     setIsLoading(true);
     setError(null);
+    
+    // Fetch the latest counter value before generating barcodes
+    await fetchLastCounter();
 
     const reader = new FileReader();
     reader.onload = (e) => {
@@ -429,7 +439,7 @@ const BarcodeUniqueGenerator = () => {
       }))
     }
     try {
-      const response = await axios.post('http://10.0.1.12:6060/api/flipkart/custom/wid/create', payload);
+      const response = await axios.post(`${baseUrl}api/flipkart/custom/wid/create`, payload);
       console.log('Response:', response);
       if(response.data.success){
         fetchLastCounter();
@@ -488,30 +498,6 @@ const BarcodeUniqueGenerator = () => {
     setBarcodeData(prevData => 
       prevData.map(item => ({ ...item, selected: !selectAll }))
     );
-  };
-
-  const handleDownloadAllAsPDF = async () => {
-    if (!barcodeContainerRef.current || barcodeData.length === 0) return;
-    
-    try {
-      setIsLoading(true);
-      const canvas = await html2canvas(barcodeContainerRef.current);
-      const imgData = canvas.toDataURL('image/png');
-      
-      // Create a link element to download the image
-      const link = document.createElement('a');
-      link.href = imgData;
-      link.download = 'barcodes.png';
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      
-      setIsLoading(false);
-    } catch (error) {
-      console.error('Download error:', error);
-      setError('Failed to download barcodes');
-      setIsLoading(false);
-    }
   };
 
   const handleExportCsv = () => {
@@ -786,14 +772,6 @@ const BarcodeUniqueGenerator = () => {
                     </Button>
                   </Tooltip>
                   
-                  {/* <Button
-                    variant="outlined"
-                    onClick={handleDownloadAllAsPDF}
-                    className="hide-on-print"
-                  >
-                    Download as Image
-                  </Button> */}
-
                   <Button
                     variant="contained"
                     color="secondary"
