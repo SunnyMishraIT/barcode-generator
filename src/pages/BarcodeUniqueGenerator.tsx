@@ -4,7 +4,6 @@ import {
   Typography, 
   Button, 
   Paper, 
-  Grid, 
   Alert, 
   CircularProgress,
   FormControl,
@@ -31,6 +30,8 @@ import {
   Dialog,
   DialogContent,
   DialogActions,
+  Backdrop,
+  Snackbar,
 } from '@mui/material';
 import CloudUploadIcon from '@mui/icons-material/CloudUpload';
 import PrintIcon from '@mui/icons-material/Print';
@@ -40,6 +41,8 @@ import PrintAllIcon from '@mui/icons-material/LocalPrintshop';
 import HelpOutlineIcon from '@mui/icons-material/HelpOutline';
 import CloseIcon from '@mui/icons-material/Close';
 import DownloadIcon from '@mui/icons-material/GetApp';
+import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
+import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline';
 import * as XLSX from 'xlsx';
 import JsBarcode from 'jsbarcode';
 import html2canvas from 'html2canvas';
@@ -54,10 +57,12 @@ interface BarcodeData {
 }
 
 const BarcodeUniqueGenerator = () => {
+  // const baseUrl = 'https://flipkartstagingapi.viralfission.com/';
   const baseUrl = 'https://fkprodapi.viralfission.com/';
   const [file, setFile] = useState<File | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
   const [barcodeData, setBarcodeData] = useState<BarcodeData[]>([]);
   const [selectedColumn, setSelectedColumn] = useState<string>('');
   const [labelColumn, setLabelColumn] = useState<string>('');
@@ -69,36 +74,6 @@ const BarcodeUniqueGenerator = () => {
   const barcodeContainerRef = useRef<HTMLDivElement>(null);
   const printFrameRef = useRef<HTMLIFrameElement>(null);
   const [counterValue, setCounterValue] = useState<number>(0);
-
-  // Function to generate unique numeric identifier
-  // const generateUniqueIdentifier = (index: number, fnsValue: string): string => {
-  //   // Create a unique identifier using both index and a hash of the FNS value
-  //   // This ensures uniqueness even if the file is uploaded multiple times
-    
-  //   // Use last 4 characters of FNS (or pad if shorter)
-  //   const fnsEnd = fnsValue.length > 4 ? fnsValue.slice(-4) : fnsValue.padStart(4, '0');
-    
-  //   // Create a simple hash from the FNS value (get numeric values only)
-  //   const numericHash = fnsEnd.replace(/[^0-9]/g, '');
-    
-  //   // If we have numeric values, use them, otherwise use index-based unique ID
-  //   if (numericHash.length > 0) {
-  //     // Take last digit for uniqueness
-  //     const uniqueDigit = numericHash.slice(-1);
-  //     // Combine with index to ensure uniqueness
-  //     return `${String(index + 1).padStart(4, '0')}${uniqueDigit}`;
-  //   } else {
-  //     // If no numeric values in FNS, use the index as the main identifier but ensure 5 digits
-  //     return String(index + 1).padStart(5, '0');
-  //   }
-  // };
-
-  const generateUniqueIdentifier = () => {
-    const startingCounter = counterValue;
-    const counter = startingCounter + 1;
-    setCounterValue(counter);
-    return String(counter).padStart(6, '0');
-  };
 
   const fetchLastCounter = async () => {
     try {
@@ -221,6 +196,7 @@ const BarcodeUniqueGenerator = () => {
 
     setIsLoading(true);
     setError(null);
+    setSuccess(null);
     
     try {
       // Fetch the latest counter value before generating barcodes
@@ -258,30 +234,20 @@ const BarcodeUniqueGenerator = () => {
 
       // Track used identifiers to ensure uniqueness
       const usedIdentifiers = new Set<string>();
+      let currentCounter = counterValue; // Start with the latest counter value
       
       const barcodes: BarcodeData[] = jsonData.map((row, index) => {
         const value = row[selectedColumn]?.toString() || '';
         const label = labelColumn ? row[labelColumn]?.toString() || '' : '';
         
-        // Generate base identifier
-        let identifier = generateUniqueIdentifier();
+        // Generate base identifier - increment counter for each item
+        currentCounter += 1;
+        const identifier = String(currentCounter).padStart(6, '0');
         
-        // Ensure identifier is unique by adding a suffix if needed
-        let suffix = 0;
-        let tempIdentifier = identifier;
-        while (usedIdentifiers.has(tempIdentifier)) {
-          suffix++;
-          // Make room for suffix by removing last digit of base ID if needed
-          if (suffix > 9) {
-            const baseId = identifier.slice(0, -String(suffix).length);
-            tempIdentifier = `${baseId}${suffix}`;
-          } else {
-            tempIdentifier = `${identifier.slice(0, -1)}${suffix}`;
-          }
+        // Only add to used identifiers if it's a valid value
+        if (value !== '') {
+          usedIdentifiers.add(identifier);
         }
-        
-        identifier = tempIdentifier;
-        usedIdentifiers.add(identifier);
         
         return {
           id: `${index}-${value}`,
@@ -296,7 +262,12 @@ const BarcodeUniqueGenerator = () => {
         throw new Error('No valid barcode values found in the selected column');
       }
 
+      // Update the counter value after generating all barcodes
+      setCounterValue(currentCounter);
       setBarcodeData(barcodes);
+      
+      // Send data to server to ensure counter is updated
+      // await sendDataToApi(barcodes);
     } catch (error) {
       console.error('Barcode generation error:', error);
       setError((error as Error).message || 'Failed to generate barcodes');
@@ -442,9 +413,14 @@ const BarcodeUniqueGenerator = () => {
     }
   };
 
-  const sendDataToApi = async () => {
+  const sendDataToApi = async (customData = null) => {
+    setIsLoading(true);
+    setError(null);
+    setSuccess(null);
+    
+    const dataToSend = customData || barcodeData;
     const payload = {
-      "data": barcodeData.map(item => ({
+      "data": dataToSend.map(item => ({
         "fsn": item.value,
         "uid": Number(item.identifier),
         "cid": item.label
@@ -454,13 +430,17 @@ const BarcodeUniqueGenerator = () => {
       const response = await axios.post(`${baseUrl}api/flipkart/custom/wid/create`, payload);
       console.log('Response:', response);
       if(response.data.success){
-        fetchLastCounter();
-        setError(null);
+        await fetchLastCounter();
+        setSuccess("Data Saved Successfully");
+      } else {
+        setError(response.data.description || "Failed to save data to server");
       }
       return response;
     } catch (error) {
       console.error('Error sending data to API:', error);
       setError('Failed to send data to API');
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -616,8 +596,64 @@ const BarcodeUniqueGenerator = () => {
     }
   }, [printDialogOpen, currentPrintBarcode]);
 
+  // Function to handle closing success/error messages
+  const handleCloseMessages = () => {
+    setSuccess(null);
+    setError(null);
+  };
+
   return (
     <Box>
+      {/* Full Page Loader */}
+      <Backdrop
+        sx={{ 
+          color: '#fff', 
+          zIndex: (theme) => theme.zIndex.drawer + 1,
+          flexDirection: 'column',
+          gap: 2
+        }}
+        open={isLoading}
+      >
+        <CircularProgress color="inherit" size={60} />
+        <Typography variant="h6" component="div">
+          Processing...
+        </Typography>
+      </Backdrop>
+
+      {/* Success message snackbar */}
+      <Snackbar
+        open={!!success}
+        autoHideDuration={6000}
+        onClose={handleCloseMessages}
+        anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
+      >
+        <Alert 
+          onClose={handleCloseMessages} 
+          severity="success" 
+          sx={{ width: '100%', alignItems: 'center' }}
+          icon={<CheckCircleOutlineIcon fontSize="large" />}
+        >
+          <Typography variant="subtitle1">{success}</Typography>
+        </Alert>
+      </Snackbar>
+
+      {/* Error message snackbar */}
+      <Snackbar
+        open={!!error}
+        autoHideDuration={6000}
+        onClose={handleCloseMessages}
+        anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
+      >
+        <Alert 
+          onClose={handleCloseMessages} 
+          severity="error"
+          sx={{ width: '100%', alignItems: 'center' }}
+          icon={<ErrorOutlineIcon fontSize="large" />}
+        >
+          <Typography variant="subtitle1">{error}</Typography>
+        </Alert>
+      </Snackbar>
+
       <Typography variant="h4" component="h1" gutterBottom>
         Barcode Generator
       </Typography>
@@ -627,8 +663,8 @@ const BarcodeUniqueGenerator = () => {
           Upload Data File
         </Typography>
         
-        <Grid container spacing={3}>
-          <Grid item xs={12} md={4} component="div">
+        <Box sx={{ display: 'flex', flexWrap: 'wrap', mx: -1.5 }}>
+          <Box sx={{ width: { xs: '100%', md: '33.33%' }, px: 1.5, mb: 2 }}>
             <Box sx={{ mb: 1 }}>
               <Stack direction="row" spacing={1} alignItems="center">
                 <Typography variant="body2" fontWeight={500}>Upload your CSV/Excel file</Typography>
@@ -657,9 +693,9 @@ const BarcodeUniqueGenerator = () => {
                 File: {file.name}
               </Typography>
             )}
-          </Grid>
+          </Box>
           
-          <Grid item xs={12} md={4} component="div">
+          <Box sx={{ width: { xs: '100%', md: '33.33%' }, px: 1.5, mb: 2 }}>
             <FormControl fullWidth disabled={availableColumns.length === 0} sx={{ mb: 0.5 }}>
               <InputLabel>Barcode Value Column</InputLabel>
               <Select
@@ -686,9 +722,9 @@ const BarcodeUniqueGenerator = () => {
                 <InfoIcon fontSize="small" />
               </IconButton>
             </Tooltip>
-          </Grid>
+          </Box>
           
-          <Grid item xs={12} md={4} component="div">
+          <Box sx={{ width: { xs: '100%', md: '33.33%' }, px: 1.5, mb: 2 }}>
             <FormControl fullWidth disabled={availableColumns.length === 0} sx={{ mb: 0.5 }}>
               <InputLabel>Label Column (Optional)</InputLabel>
               <Select
@@ -716,8 +752,8 @@ const BarcodeUniqueGenerator = () => {
                 <InfoIcon fontSize="small" />
               </IconButton>
             </Tooltip>
-          </Grid>
-        </Grid>
+          </Box>
+        </Box>
         
         <Box sx={{ mt: 4, display: 'flex', justifyContent: 'space-between' }}>
           <Button
@@ -741,18 +777,6 @@ const BarcodeUniqueGenerator = () => {
           </Button>
         </Box>
       </Paper>
-      
-      {isLoading && (
-        <Box sx={{ display: 'flex', justifyContent: 'center', mt: 4 }}>
-          <CircularProgress />
-        </Box>
-      )}
-      
-      {error && (
-        <Alert severity="error" sx={{ mt: 3 }}>
-          {error}
-        </Alert>
-      )}
       
       {barcodeData.length > 0 && (
         <Box sx={{ mt: 3 }}>
@@ -821,7 +845,7 @@ const BarcodeUniqueGenerator = () => {
                   <Button
                     variant="contained"
                     color="secondary"
-                    onClick={sendDataToApi}
+                    onClick={() => sendDataToApi()}
                     className="hide-on-print"
                   >
                     Save to Server
