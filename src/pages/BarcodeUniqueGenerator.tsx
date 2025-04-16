@@ -163,48 +163,54 @@ const BarcodeUniqueGenerator = () => {
     setError(null);
     setIsLoading(true);
     
-    // Fetch the latest counter value when a new file is uploaded
-    await fetchLastCounter();
-    
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      try {
-        const data = e.target?.result;
-        const workbook = XLSX.read(data, { type: 'binary' });
-        const sheetName = workbook.SheetNames[0];
-        const worksheet = workbook.Sheets[sheetName];
-        const jsonData = XLSX.utils.sheet_to_json(worksheet);
-        
-        if (jsonData.length === 0) {
-          setError('Uploaded file contains no data');
-          setIsLoading(false);
-          return;
-        }
+    try {
+      // Fetch the latest counter value when a new file is uploaded
+      await fetchLastCounter();
+      
+      // Process the file
+      const jsonData = await new Promise<Record<string, unknown>[]>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          try {
+            const data = e.target?.result;
+            const workbook = XLSX.read(data, { type: 'binary' });
+            const sheetName = workbook.SheetNames[0];
+            const worksheet = workbook.Sheets[sheetName];
+            const parsedData = XLSX.utils.sheet_to_json(worksheet);
+            
+            if (parsedData.length === 0) {
+              reject(new Error('Uploaded file contains no data'));
+              return;
+            }
+            
+            resolve(parsedData as Record<string, unknown>[]);
+          } catch (error) {
+            reject(error);
+          }
+        };
 
-        // Extract column names from the first object in the array
-        const firstItem = jsonData[0] as Record<string, unknown>;
-        const columns = Object.keys(firstItem);
-        setAvailableColumns(columns);
-        
-        // Reset selected column if it's not in the new columns
-        if (!columns.includes(selectedColumn)) {
-          setSelectedColumn('');
-        }
-        
-        setIsLoading(false);
-      } catch (error) {
-        console.error('File processing error:', error);
-        setError('Failed to process the file. Please ensure it is a valid Excel or CSV file.');
-        setIsLoading(false);
+        reader.onerror = () => {
+          reject(new Error('Error reading the file'));
+        };
+
+        reader.readAsBinaryString(uploadedFile);
+      });
+
+      // Extract column names from the first object in the array
+      const firstItem = jsonData[0];
+      const columns = Object.keys(firstItem);
+      setAvailableColumns(columns);
+      
+      // Reset selected column if it's not in the new columns
+      if (!columns.includes(selectedColumn)) {
+        setSelectedColumn('');
       }
-    };
-
-    reader.onerror = () => {
-      setError('Error reading the file');
+    } catch (error) {
+      console.error('File processing error:', error);
+      setError((error as Error).message || 'Failed to process the file. Please ensure it is a valid Excel or CSV file.');
+    } finally {
       setIsLoading(false);
-    };
-
-    reader.readAsBinaryString(uploadedFile);
+    }
   };
 
   const handleGenerateBarcodes = async () => {
@@ -216,81 +222,87 @@ const BarcodeUniqueGenerator = () => {
     setIsLoading(true);
     setError(null);
     
-    // Fetch the latest counter value before generating barcodes
-    await fetchLastCounter();
+    try {
+      // Fetch the latest counter value before generating barcodes
+      await fetchLastCounter();
 
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      try {
-        const data = e.target?.result;
-        const workbook = XLSX.read(data, { type: 'binary' });
-        const sheetName = workbook.SheetNames[0];
-        const worksheet = workbook.Sheets[sheetName];
-        const jsonData = XLSX.utils.sheet_to_json(worksheet);
-
-        if (jsonData.length === 0) {
-          setError('No data found in the selected file');
-          setIsLoading(false);
-          return;
-        }
-
-        // Track used identifiers to ensure uniqueness
-        const usedIdentifiers = new Set<string>();
+      // Use a promise for file reading
+      const jsonData = await new Promise<Record<string, unknown>[]>((resolve, reject) => {
+        const reader = new FileReader();
         
-        const barcodes: BarcodeData[] = (jsonData as Record<string, unknown>[]).map((row, index) => {
-          const value = row[selectedColumn]?.toString() || '';
-          const label = labelColumn ? row[labelColumn]?.toString() || '' : '';
-          
-          // Generate base identifier
-          let identifier = generateUniqueIdentifier();
-          
-          // Ensure identifier is unique by adding a suffix if needed
-          let suffix = 0;
-          let tempIdentifier = identifier;
-          while (usedIdentifiers.has(tempIdentifier)) {
-            suffix++;
-            // Make room for suffix by removing last digit of base ID if needed
-            if (suffix > 9) {
-              const baseId = identifier.slice(0, -String(suffix).length);
-              tempIdentifier = `${baseId}${suffix}`;
-            } else {
-              tempIdentifier = `${identifier.slice(0, -1)}${suffix}`;
+        reader.onload = (e) => {
+          try {
+            const data = e.target?.result;
+            const workbook = XLSX.read(data, { type: 'binary' });
+            const sheetName = workbook.SheetNames[0];
+            const worksheet = workbook.Sheets[sheetName];
+            const parsedData = XLSX.utils.sheet_to_json(worksheet);
+            
+            if (parsedData.length === 0) {
+              reject(new Error('No data found in the selected file'));
+              return;
             }
+            
+            resolve(parsedData as Record<string, unknown>[]);
+          } catch (error) {
+            reject(error);
           }
-          
-          identifier = tempIdentifier;
-          usedIdentifiers.add(identifier);
-          
-          return {
-            id: `${index}-${value}`,
-            value,
-            label,
-            selected: true,
-            identifier
-          };
-        }).filter(item => item.value !== '');
+        };
 
-        if (barcodes.length === 0) {
-          setError('No valid barcode values found in the selected column');
-          setIsLoading(false);
-          return;
+        reader.onerror = () => {
+          reject(new Error('Error reading the file'));
+        };
+
+        reader.readAsBinaryString(file);
+      });
+
+      // Track used identifiers to ensure uniqueness
+      const usedIdentifiers = new Set<string>();
+      
+      const barcodes: BarcodeData[] = jsonData.map((row, index) => {
+        const value = row[selectedColumn]?.toString() || '';
+        const label = labelColumn ? row[labelColumn]?.toString() || '' : '';
+        
+        // Generate base identifier
+        let identifier = generateUniqueIdentifier();
+        
+        // Ensure identifier is unique by adding a suffix if needed
+        let suffix = 0;
+        let tempIdentifier = identifier;
+        while (usedIdentifiers.has(tempIdentifier)) {
+          suffix++;
+          // Make room for suffix by removing last digit of base ID if needed
+          if (suffix > 9) {
+            const baseId = identifier.slice(0, -String(suffix).length);
+            tempIdentifier = `${baseId}${suffix}`;
+          } else {
+            tempIdentifier = `${identifier.slice(0, -1)}${suffix}`;
+          }
         }
+        
+        identifier = tempIdentifier;
+        usedIdentifiers.add(identifier);
+        
+        return {
+          id: `${index}-${value}`,
+          value,
+          label,
+          selected: true,
+          identifier
+        };
+      }).filter(item => item.value !== '');
 
-        setBarcodeData(barcodes);
-        setIsLoading(false);
-      } catch (error) {
-        console.error('Barcode generation error:', error);
-        setError('Failed to generate barcodes');
-        setIsLoading(false);
+      if (barcodes.length === 0) {
+        throw new Error('No valid barcode values found in the selected column');
       }
-    };
 
-    reader.onerror = () => {
-      setError('Error reading the file');
+      setBarcodeData(barcodes);
+    } catch (error) {
+      console.error('Barcode generation error:', error);
+      setError((error as Error).message || 'Failed to generate barcodes');
+    } finally {
       setIsLoading(false);
-    };
-
-    reader.readAsBinaryString(file);
+    }
   };
 
   const createPrintContent = (barcodesToPrint: BarcodeData[]) => {
@@ -526,6 +538,30 @@ const BarcodeUniqueGenerator = () => {
     } catch (error) {
       console.error('CSV export error:', error);
       setError('Failed to export data as CSV');
+      setIsLoading(false);
+    }
+  };
+
+  const handleDownloadAllAsPDF = async () => {
+    if (!barcodeContainerRef.current || barcodeData.length === 0) return;
+    
+    try {
+      setIsLoading(true);
+      const canvas = await html2canvas(barcodeContainerRef.current);
+      const imgData = canvas.toDataURL('image/png');
+      
+      // Create a link element to download the image
+      const link = document.createElement('a');
+      link.href = imgData;
+      link.download = 'barcodes.png';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      
+      setIsLoading(false);
+    } catch (error) {
+      console.error('Download error:', error);
+      setError('Failed to download barcodes');
       setIsLoading(false);
     }
   };
@@ -769,6 +805,16 @@ const BarcodeUniqueGenerator = () => {
                       className="hide-on-print"
                     >
                       Export Data
+                    </Button>
+                  </Tooltip>
+                  
+                  <Tooltip title="Download as image">
+                    <Button
+                      variant="outlined"
+                      onClick={handleDownloadAllAsPDF}
+                      className="hide-on-print"
+                    >
+                      Download as Image
                     </Button>
                   </Tooltip>
                   
